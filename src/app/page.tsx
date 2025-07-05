@@ -11,6 +11,9 @@ export default function Home() {
     <div style={{ background: '#fff', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ fontFamily: 'Arial, sans-serif', maxWidth: '600px', width: '100%', margin: '0 auto', padding: '20px', border: '1px solid #eee', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
         <h1 style={{ textAlign: 'center', color: '#333' }}>Gemini 16-Bit Image Generator</h1>
+        <p className="text-center mb-2 text-3xl font-bold text-blue-600">
+          Gemini AI
+        </p>
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
           <p style={{ color: '#666' }}>
             Welcome! This is a 16x16 Image Generator powered by <b>Gemini AI</b>.<br/>
