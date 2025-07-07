@@ -1,4 +1,4 @@
-// app/api/generate-pixels/route.ts
+// /app/api/generate-pixels/route.ts
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -24,129 +24,119 @@ export async function POST(request: NextRequest) {
 
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    const systemPrompt = `🎨 You are a professional pixel artist generating 16x16 pixel art based on user prompts.
+    const systemPrompt = `🎨 You are a professional pixel artist drawing 16×16 grid art using JSON pixels. Think like a graphic designer AND a geometry tutor for a tiny robot.
 
-🧠 Your Task:
-1. Create a pixelated image on a 16x16 grid based on the prompt (e.g., "Super Mario", "tree", "yellow duck").
-2. The subject must:
-   - Fit entirely within the 16x16 canvas.
-   - Be centered and proportional.
-   - Maximize use of the canvas — try to fill as much of the space as possible.
-   - Begin with a clear shape outline, then add internal details.
-3. Use between 140 and 256 non-white pixels to form a clear, recognizable, and detailed image.
+🧠 Your Job:
+Generate 16×16 pixel art for: {userPrompt}
 
-📐 Layout Rules:
-- Use 0-based coordinates:
-  - row: 0–15 (top to bottom)
-  - column: 0–15 (left to right)
-- Background (empty spaces) should remain white (#FFFFFF) and should not be included in output.
+---
 
-🎨 Color Guidelines:
-- Use realistic, subject-appropriate colors.
-- For characters:
-  - Prioritize the face, eyes, lips, body, and signature accessories.
-- For objects:
-  - Use shading and highlights (light, mid, dark tones) to create depth.
-  - Outline and silhouette clarity is most important.
+📏 GENERAL PIXEL ART RULES
 
-📤 Output Format:
-- Return a JSON array only, with no explanation or extra text.
-- Each entry must include:
-  - hexCode (e.g. "#A8E6CF")
-  - column (0–15)
-  - row (0–15)
+1. 🧱 Canvas & Positioning
+- Draw within a 16×16 grid (rows 0–15, columns 0–15)
+- Keep the subject **centered and proportional**
+- Fit the **entire object** on canvas
+- Leave **~40–50% white background** for clarity
 
-Example Prompt: "Purple Circle"
-- Goal: A purple circle that fills most of the canvas, centered and shaded for depth.
-- Output:
+2. 🎨 Color Use
+- Use only 3 to 6 subject-appropriate HEX colors
+- Do NOT include white (#FFFFFF) in the output
+- Use **base + shading** (light, mid, dark tones)
+
+3. 💡 Pixel Count
+- Use **140–256 colored pixels only**
+- Background must remain uncolored
+
+4. 🧼 Visual Quality
+- Start with a **clear black outline** to define shape
+- Add main colors inside
+- Then add details (like toppings, shine, foam, etc.)
+- Avoid random or noisy pixels
+
+---
+
+🍽️ FOOD-SPECIFIC RULES
+
+1. 🔺 “Slice” means triangle — draw a triangle
+   - Example: Pizza slice = downward triangle with red/yellow dots
+   - Use crust arc, cheese body, toppings inside
+
+2. 🍉 “Watermelon slice” = red triangle or arc with black seeds, green shell, white rind
+
+3. 🍔 “Burger” = stacked horizontal layers:
+   - Top bun > lettuce > tomato > patty > bottom bun
+   - Each layer is 2–3 pixels high, full width
+   - Use brown (#A0522D), green (#4c9b00), red (#FF0000)
+
+
+
+📐 MATH + SHAPE RULES FOR ROBOT:
+
+- **Circle** ≈ pixels in oval with rounded edges
+- **Triangle** = 3–5 rows narrowing from bottom to top
+- **U-shape** = 2 vertical lines + round bottom
+- **Rectangle** = straight block
+- **Centering** = equal padding left/right
+- Do NOT touch edge (column 0 or 15) unless shape demands it
+
+---
+
+📤 OUTPUT FORMAT
+
+Return **ONLY** a JSON array with no extra text. Example:
 [
-  { "hexCode": "#D1B3FF", "column": 6, "row": 3 },
-  { "hexCode": "#C084FC", "column": 7, "row": 3 },
-  { "hexCode": "#9333EA", "column": 8, "row": 3 },
-  ...
-  { "hexCode": "#D1B3FF", "column": 6, "row": 12 },
-  { "hexCode": "#C084FC", "column": 7, "row": 12 },
-  { "hexCode": "#9333EA", "column": 8, "row": 12 }
+  { "hexCode": "#FF0000", "column": 6, "row": 5 },
+  { "hexCode": "#000000", "column": 7, "row": 6 }
 ]
-- Uses three shades of purple for depth:
-  - Light: #D1B3FF
-  - Mid: #C084FC
-  - Dark: #9333EA
-- Circle is centered and fills most of the grid for maximum visual impact.
 
-Do NOT:
-- Include white pixels in the output.
-- Add any text outside the JSON.
-- Output fewer than 140 or more than 256 pixels.
+❌ DO NOT:
+- Include any white (#FFFFFF) pixels
+- Add text or explanation
+- Output fewer than 140 or more than 256 pixels
 `;
 
-    console.log(' Sending request to Gemini with prompt:', prompt);
-    
-    const result = await model.generateContent([
-      systemPrompt,
-      `Generate a complete pixel art image for: "${prompt}"`
-    ]);
+    const fullPrompt = systemPrompt.replaceAll('{userPrompt}', prompt);
 
-    const response = await result.response;
+    console.log('🚀 Sending request to Gemini with prompt:', prompt);
+
+    const result = await model.generateContent(fullPrompt);
+    const response = result.response;
     const text = response.text();
-    
-    console.log('🔍 Gemini Response:', text);
-    console.log('📝 Raw text length:', text.length);
-    
-    // Remove code block markers if present
+
+    console.log('🔍 Gemini Raw Response:', text);
+
     const cleaned = text.replace(/```json|```/gi, '').trim();
     const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
-      console.log('❌ No JSON array found in response');
-      throw new Error('Invalid response format from Gemini');
-    }
+    if (!jsonMatch) throw new Error('No valid JSON found');
 
-    console.log('🎯 Extracted JSON:', jsonMatch[0]);
     const pixelsArray = JSON.parse(jsonMatch[0]);
-    console.log('✅ Parsed pixels array:', pixelsArray);
-    
-    // Validate the response
+
     if (!Array.isArray(pixelsArray)) {
-      console.log('❌ Response is not an array:', pixelsArray);
-      throw new Error('Invalid response format - expected array');
+      throw new Error('Invalid response: not an array');
     }
 
-    // Validate each pixel and ensure values are within bounds
     const validatedPixels = pixelsArray.map((pixel, index) => {
-      if (!pixel.hexCode || typeof pixel.column !== 'number' || typeof pixel.row !== 'number') {
-        console.log(`❌ Invalid pixel at index ${index}:`, pixel);
-        throw new Error(`Invalid pixel data at index ${index}`);
+      if (
+        typeof pixel.hexCode !== 'string' ||
+        typeof pixel.column !== 'number' ||
+        typeof pixel.row !== 'number'
+      ) {
+        throw new Error(`Invalid pixel at index ${index}`);
       }
-      
+
       return {
         hexCode: pixel.hexCode,
         column: Math.max(0, Math.min(15, Math.floor(pixel.column))),
         row: Math.max(0, Math.min(15, Math.floor(pixel.row)))
       };
     });
-    
-    console.log('🎨 Final validated pixels:', validatedPixels);
-    console.log('📊 Total pixels generated:', validatedPixels.length);
+
     return NextResponse.json({ pixels: validatedPixels });
+
   } catch (error) {
-    console.error('Error generating pixel:', error);
-    
-    // Provide more specific error messages
-    if (error instanceof Error) {
-      if (error.message.includes('API key')) {
-        return NextResponse.json(
-          { error: 'Invalid or missing Gemini API key. Please check your .env.local file.' },
-          { status: 500 }
-        );
-      }
-      if (error.message.includes('404')) {
-        return NextResponse.json(
-          { error: 'Gemini API model not found. Please check the model name.' },
-          { status: 500 }
-        );
-      }
-    }
-    
+    console.error('❌ Error generating pixel:', error);
+
     return NextResponse.json(
       { error: 'Failed to generate pixel. Please try again.' },
       { status: 500 }
